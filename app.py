@@ -1,11 +1,17 @@
+import os
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
-from dotenv import load_dotenv
 from agent_panel import agent_panel
 
-load_dotenv()
-client = OpenAI()
+try:
+    api_key = st.secrets["OPENAI_API_KEY"]
+except Exception:
+    from dotenv import load_dotenv
+    load_dotenv()
+    api_key = os.environ["OPENAI_API_KEY"]
+
+client = OpenAI(api_key=api_key)
 
 st.set_page_config(page_title="Data Analysis Tool", layout="wide")
 st.title("Interactive Data Analysis Tool")
