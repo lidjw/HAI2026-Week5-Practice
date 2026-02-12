@@ -1,3 +1,4 @@
+go into Users\joshu\OneDrive\Desktop\BC\Human-AI Interaction\Discussions\HAI2026-Week5-Practice>
 run venv stuff
 
 open link:
