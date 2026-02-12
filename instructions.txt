@@ -1,3 +1,9 @@
+run venv stuff
+
+open link:
+
+https://hai2026-week5-practice-vajtu4hetggg4voghunbny.streamlit.app
+
 SAVE first
 
 git add .    -> this adds all the changed files
