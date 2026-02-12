@@ -14,7 +14,7 @@ except Exception:
 client = OpenAI(api_key=api_key)
 
 st.set_page_config(page_title="Data Analysis Tool", layout="wide")
-st.title("Data Analysis App TEST")
+st.title("Data Analysis App ABC")
 
 df = pd.read_csv('movies.csv')
 
