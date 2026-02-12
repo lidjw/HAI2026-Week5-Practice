@@ -1,6 +1,6 @@
+SAVE first
 
 git add .    -> this adds all the changed files
 git commit -m "message placeholder"   -> commits the changed files and prepares it for pushing
 git push origin main -> pushes thos changes to github repository
 
-commit in VS code using new messages
