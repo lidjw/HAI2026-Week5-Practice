@@ -1,0 +1,6 @@
+git pull origin main -> do this before you make any new changes to prevent merge conflicts later
+git add .    -> this adds all the changed files
+git commit   -> commits the changed files and prepares it for pushing
+git push origin main -> pushes thos changes to github repository
+
+commit in VS code using new messages
