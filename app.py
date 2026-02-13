@@ -85,6 +85,7 @@ with col1:
         placeholder="e.g., What is the average IMDB rating?"
     )
     show_chart = st.checkbox("Show chart")
+    plan_first_mode = st.checkbox("Require plan approval before execution", value=True)
     analyze_button = st.button("Analyze", type="primary")
 
 with col2:
