@@ -158,6 +158,36 @@ def reject_pending_tools(feedback):
 
 # ── Rendering ──
 
+def render_run_summary():
+    df = get_state("agent_df")
+    events = get_state("agent_events") or []
+
+    # Data context
+    st.subheader("Run Summary")
+    if df is not None:
+        st.caption(f"Data context (after filters): {df.shape[0]} rows × {df.shape[1]} columns")
+    else:
+        st.caption("Data context: (no dataframe loaded)")
+
+    # Counts by event type
+    tool_actions = [e for e in events if e.get("type") in ("action", "chart")]
+    rejections = [e for e in events if e.get("type") == "rejected"]
+    answers = [e for e in events if e.get("type") == "answer"]
+
+    st.caption(
+        f"Steps: {len(tool_actions)} tool actions | {len(rejections)} rejections | {len(answers)} answers"
+    )
+
+    # Latest observation preview (compact)
+    if tool_actions:
+        last = tool_actions[-1]
+        st.markdown("**Most recent observation (preview):**")
+
+        # action -> last["result"], chart -> last["result"]
+        preview = str(last.get("result", ""))[:500]
+        st.code(preview if preview else "(no output)")
+
+
 def render_events():
     for event in get_state("agent_events"):
         if event["type"] == "thought":
@@ -237,36 +267,49 @@ def render_panel():
             st.info("Enter a question and click 'Analyze' to see results.")
 
         elif phase in ("thinking", "acting"):
-            with st.expander("Agent Reasoning Trace", expanded=True):
+            with st.expander("Run Summary", expanded=True):
+                render_run_summary()
+            with st.expander("Agent Reasoning Trace", expanded=False):
                 render_events()
             st.spinner("Agent is thinking...")
 
         elif phase == "awaiting_plan_approval":
-            with st.expander("Agent Reasoning Trace", expanded=True):
+            with st.expander("Run Summary", expanded=True):
+                render_run_summary()
+            with st.expander("Agent Reasoning Trace", expanded=False):
                 render_events()
             approve, send_changes, edited = render_plan_review()
             actions = {"plan_approved": approve, "plan_send_changes": send_changes, "plan_text": edited}
 
-
         elif phase == "awaiting_approval":
-            with st.expander("Agent Reasoning Trace", expanded=True):
+            with st.expander("Run Summary", expanded=True):
+                render_run_summary()
+            with st.expander("Agent Reasoning Trace", expanded=False):
                 render_events()
             approved, rejected = render_pending_approval()
             actions = {"approved": approved, "rejected": rejected}
 
         elif phase == "awaiting_feedback":
-            with st.expander("Agent Reasoning Trace", expanded=True):
+            with st.expander("Run Summary", expanded=True):
+                render_run_summary()
+            with st.expander("Agent Reasoning Trace", expanded=False):
                 render_events()
             submitted, feedback = render_pending_feedback()
             actions = {"submitted": submitted, "feedback": feedback}
-
+            
         elif phase == "done":
+            # NEW: Run Summary panel (transparency)
+            with st.expander("Run Summary", expanded=True):
+                render_run_summary()
+            # Existing reasoning trace
             with st.expander("Agent Reasoning Trace", expanded=False):
                 render_events()
+            # Final answer display
             events = get_state("agent_events")
             if events and events[-1].get("answer"):
                 st.write("**Answer:**")
                 st.write(events[-1]["answer"])
+            # Charts (if any)
             for spec in get_state("agent_chart_specs"):
                 st.vega_lite_chart(spec, use_container_width=True)
 
