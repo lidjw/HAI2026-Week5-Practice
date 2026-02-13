@@ -1,6 +1,9 @@
 go into Users\joshu\OneDrive\Desktop\BC\Human-AI Interaction\Discussions\HAI2026-Week5-Practice>
 run venv stuff
 
+python -m venv venv
+venv\Scripts\activate
+
 open link:
 
 https://hai2026-week5-practice-vajtu4hetggg4voghunbny.streamlit.app
