@@ -16,6 +16,8 @@ DEFAULT_STATE = {
     "agent_df": None,
     "agent_chart_specs": [],
     "agent_pending_message": None,
+    "agent_plan": None,
+    "agent_plan_feedback": "",
 }
 
 def get_state(key):
@@ -29,6 +31,8 @@ def restart_agent(user_question, filtered_df, show_chart=False):
     set_state("agent_events", [])
     set_state("agent_chart_specs", [])
     set_state("agent_pending_message", None)
+    set_state("agent_plan", None)
+    set_state("agent_plan_feedback", "")
 
     tools = get_tools(filtered_df)
     system_content = "You are a data analyst with access to a tool that executes Python code on a movie database."
@@ -54,6 +58,11 @@ def run_step(client):
     if phase == "thinking":
         class Reasoning(BaseModel):
             reason: str = Field(description="Your reasoning about what you know so far and what to do next")
+
+            # NEW: plan-first collaboration
+            propose_plan: bool = Field(description="True if you should propose a plan and get user approval before acting")
+            plan: Optional[str] = Field(default=None, description="Step-by-step plan (short). Only provide if propose_plan is True.")
+
             use_tool: bool = Field(description="True if you need to run code or create a chart, False if you can give the final answer")
             answer: Optional[str] = Field(default=None, description="Your final answer in one short paragraph. Only provide when use_tool is False.")
 
@@ -63,6 +72,17 @@ def run_step(client):
         reasoning = response.choices[0].message.parsed
         messages.append({"role": "assistant", "content": reasoning.reason})
 
+        # Always log the agent's thought
+        messages.append({"role": "assistant", "content": reasoning.reason})
+
+        # NEW: plan approval gate
+        if reasoning.propose_plan and reasoning.plan:
+            set_state("agent_plan", reasoning.plan)
+            get_state("agent_events").append({"type": "plan", "plan": reasoning.plan})
+            set_state("agent_phase", "awaiting_plan_approval")
+            return
+
+        # Existing behavior continues
         if reasoning.use_tool:
             get_state("agent_events").append({"type": "thought", "thought": reasoning.reason})
             set_state("agent_phase", "acting")
@@ -142,6 +162,10 @@ def render_events():
     for event in get_state("agent_events"):
         if event["type"] == "thought":
             st.markdown(f"**Thought:** {event['thought']}")
+        elif event["type"] == "plan":
+            st.markdown("**Plan:**")
+            st.code(event["plan"])
+            st.divider()
         elif event["type"] == "action":
             st.markdown(f"**Action:** `{event['name']}`")
             st.code(event["code"], language="python")
@@ -187,6 +211,21 @@ def render_pending_feedback():
     submitted = st.button("Submit Rejection", use_container_width=True)
     return submitted, feedback
 
+def render_plan_review():
+    st.warning("The agent proposes this plan. Edit it if you want to steer the approach:")
+    edited = st.text_area(
+        "Plan (editable):",
+        value=get_state("agent_plan") or "",
+        height=160
+    )
+    col1, col2 = st.columns(2)
+    with col1:
+        approve = st.button("Approve Plan", type="primary", use_container_width=True)
+    with col2:
+        send_changes = st.button("Send Plan Changes", use_container_width=True)
+
+    return approve, send_changes, edited
+
 def render_panel():
     st.subheader("Analysis Results")
     container = st.container(height=600)
@@ -201,6 +240,13 @@ def render_panel():
             with st.expander("Agent Reasoning Trace", expanded=True):
                 render_events()
             st.spinner("Agent is thinking...")
+
+        elif phase == "awaiting_plan_approval":
+            with st.expander("Agent Reasoning Trace", expanded=True):
+                render_events()
+            approve, send_changes, edited = render_plan_review()
+            actions = {"plan_approved": approve, "plan_send_changes": send_changes, "plan_text": edited}
+
 
         elif phase == "awaiting_approval":
             with st.expander("Agent Reasoning Trace", expanded=True):
@@ -241,6 +287,25 @@ def agent_panel(client, analyze_button, user_question, filtered_df, show_chart=F
     if phase in ("thinking", "acting"):
         run_step(client)
         st.rerun()
+    elif phase == "awaiting_plan_approval":
+        if actions.get("plan_approved"):
+            # Move forward: act (tool selection step)
+            set_state("agent_phase", "acting")
+            st.rerun()
+
+        elif actions.get("plan_send_changes"):
+            # Inject edited plan as user steering instruction
+            edited_plan = actions.get("plan_text", "").strip()
+            set_state("agent_plan", edited_plan)
+
+            messages = get_state("agent_messages")
+            messages.append({
+                "role": "user",
+                "content": f"Use this revised plan exactly:\n{edited_plan}"
+            })
+
+            set_state("agent_phase", "acting")
+            st.rerun()
     elif phase == "awaiting_approval":
         if actions.get("approved"):
             execute_pending_tools()
